@@ -19,17 +19,17 @@ def main():
 	GPIO.setup(22,GPIO.OUT)
 	#light sensor
 	GPIO.setup(18,GPIO.OUT)
-
+	
+	#Initialize SafeConfigParser
 	parser = SafeConfigParser()
+
+	#Read config.ini
 	parser.read('config.ini')
 
-	try:
-		dbHost = parser.get('mysql', 'dbHost')
-		dbUser = parser.get('mysql', 'dbUser')
-		dbPass = parser.get('mysql', 'dbpass')
-		dbName = parser.get('mysql', 'dbname')
-	except Exception, e:
-		print("Could not parse config.ini")
+	dbHost = parser.get('mysql', 'dbHost')
+	dbUser = parser.get('mysql', 'dbUser')
+	dbPass = parser.get('mysql', 'dbpass')
+	dbName = parser.get('mysql', 'dbname')
 
 	#set up mysql connection string
 	db = MySQLdb.connect(host=dbHost,user=dbUser,passwd=dbPass,db=dbName)
@@ -39,7 +39,6 @@ def main():
 		w1_devices = os.listdir("/sys/bus/w1/devices/")
 	except:
 		output_mp1 = subprocess.Popen('sudo modprobe w1-gpio', shell=True, stdout=subprocess.PIPE)
-		output_mp2 = subprocess.Popen('sudo modprobe w1-therm', shell=True, stdout=subprocess.PIPE)
 		time.sleep(5)
 		w1_devices = os.listdir("/sys/bus/w1/devices/")
 
@@ -65,25 +64,11 @@ def main():
 		temperature = temperature / 1000
 		return temperature
 
-	def msr_time(msr_pin):
-		reading = 0
-		GPIO.setup(msr_pin, GPIO.OUT)
-		GPIO.output(msr_pin, GPIO.LOW)
-		time.sleep(0.1)
-		starttime = time.time()                     # note start time
-		GPIO.setup(msr_pin, GPIO.IN)
-		while (GPIO.input(msr_pin) == GPIO.LOW):
-			reading += 1
-			endtime = time.time()                       # note end time
-			total_time = 1000 * (endtime - starttime)
-			return total_time  
-
 	#Set path to temp sensor
 	tempSensor = "/sys/bus/w1/devices/28-0000052c98b1/w1_slave"
 
 	#Get values here
 	temperature = "%.2f" % (read_temp(tempSensor))
-	lightlevel = "%.3f" % (1 / msr_time(18) / 6.0)
 
 	#Temp value to float for logic below
 	tmp = float(temperature)
@@ -96,15 +81,15 @@ def main():
 		GPIO.output(22,0)
 		GPIO.output(25,1)
 
-#DB stuff
+	#DB stuff
 	cursor = db.cursor()
 
 	try:
-		cursor.execute("""INSERT INTO L_Temp_Light (temperature, light_level)
-	        	        VALUES(%s,%s)""",(temperature,lightlevel))
+		cursor.execute("""INSERT INTO L_Temp_Light (temperature)
+	        	        VALUES(%s)""",(temperature))
 		db.commit()
 	except Exception,e:
-	        print("There was an error when attempting the insert: " + str(e))
+	        #print("There was an error when attempting the insert: " + str(e))
 	        db.rollback()
 
 	#Cleanup GPIO
