@@ -17,8 +17,6 @@ def main():
 	GPIO.setup(25,GPIO.OUT)
 	#Red led
 	GPIO.setup(22,GPIO.OUT)
-	#light sensor
-	GPIO.setup(18,GPIO.OUT)
 	
 	#Initialize SafeConfigParser
 	parser = SafeConfigParser()
@@ -26,6 +24,7 @@ def main():
 	#Read config.ini
 	parser.read('config.ini')
 
+	dbON = parser.get('mysql', 'dbON')
 	dbHost = parser.get('mysql', 'dbHost')
 	dbUser = parser.get('mysql', 'dbUser')
 	dbPass = parser.get('mysql', 'dbpass')
@@ -38,7 +37,7 @@ def main():
 	try:
 		w1_devices = os.listdir("/sys/bus/w1/devices/")
 	except:
-		output_mp1 = subprocess.Popen('sudo modprobe w1-gpio', shell=True, stdout=subprocess.PIPE)
+		subprocess.Popen('modprobe w1-gpio', shell=True, stdout=subprocess.PIPE)
 		time.sleep(5)
 		w1_devices = os.listdir("/sys/bus/w1/devices/")
 
@@ -61,7 +60,7 @@ def main():
 		# The first two characters are "t=", so get rid of those and convert the tem$
 		temperature = float(temperaturedata[2:])
 		# Put the decimal point in the right place and display it.
-		temperature = temperature / 1000
+		temperature = temperature / 1000.0
 		return temperature
 
 	#Set path to temp sensor
@@ -70,27 +69,26 @@ def main():
 	#Get values here
 	temperature = "%.2f" % (read_temp(tempSensor))
 
-	#Temp value to float for logic below
-	tmp = float(temperature)
-
 	#Logic to control LEDs
-	if tmp < 20:
+	if temperature < 20:
 		GPIO.output(22,1)
 		GPIO.output(25,0)
 	else:
 		GPIO.output(22,0)
 		GPIO.output(25,1)
-
-	#DB stuff
-	cursor = db.cursor()
-
-	try:
-		cursor.execute("""INSERT INTO L_Temp_Light (temperature)
+			
+	if dbON == "true":
+		#DB stuff
+		cursor = db.cursor()
+		try:
+			cursor.execute("""INSERT INTO L_Temp_Light (temperature)
 	        	        VALUES(%s)""",(temperature))
-		db.commit()
-	except Exception,e:
-	        #print("There was an error when attempting the insert: " + str(e))
-	        db.rollback()
+			db.commit()
+		except Exception,e:
+		        #print("There was an error when attempting the insert: " + str(e))
+		        db.rollback()
+	else:
+		print(temperature)
 
 	#Cleanup GPIO
 	#GPIO.cleanup()
