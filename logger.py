@@ -53,21 +53,20 @@ def main():
 		text = DS18b20.read()
 		DS18b20.close()
 
-		# Split the text with new lines (\n) and select the second line.
-		secondline = text.split("\n")[1]
-		# Split the line into words, referring to the spaces, and select the 10th wo$
-		temperaturedata = secondline.split(" ")[9]
-		# The first two characters are "t=", so get rid of those and convert the tem$
-		temperature = float(temperaturedata[2:])
-		# Put the decimal point in the right place and display it.
-		temperature = temperature / 1000.0
-		return temperature
+		crc = text.split("\n")[0][-3:]		
 
+		if crc=="YES":
+			rawData = text.split("\n")[1][-5:]
+			temperature = float(rawData) / 1000
+			return temperature
+		else:
+			return None
 	#Set path to temp sensor
 	tempSensor = "/sys/bus/w1/devices/28-0000052c98b1/w1_slave"
 
 	#Get values here
 	temperature = "%.2f" % (read_temp(tempSensor))
+	temperature = round(read_temp(tempSensor))
 
 	#Logic to control LEDs
 	if temperature < 20:
@@ -81,8 +80,8 @@ def main():
 		#DB stuff
 		cursor = db.cursor()
 		try:
-			cursor.execute("""INSERT INTO L_Temp_Light (temperature)
-	        	        VALUES(%s)""",(temperature))
+			cursor.execute("""INSERT INTO tempData
+	        	        VALUES(CURRENT_DATE(), NOW(), 'lounge', %s)""",(temperature))
 			db.commit()
 		except Exception,e:
 		        #print("There was an error when attempting the insert: " + str(e))
