@@ -24,14 +24,15 @@ def main():
 	#Read config.ini
 	parser.read('config.ini')
 
+	tempSensor0 = parser.get('hardware', 'tempSensor0')	
+	tempSensor0_loc = parser.get('location', 'tempSensor0_loc')	
+
 	dbON = parser.get('mysql', 'dbON')
 	dbHost = parser.get('mysql', 'dbHost')
 	dbUser = parser.get('mysql', 'dbUser')
 	dbPass = parser.get('mysql', 'dbpass')
 	dbName = parser.get('mysql', 'dbname')
 
-	#set up mysql connection string
-	db = MySQLdb.connect(host=dbHost,user=dbUser,passwd=dbPass,db=dbName)
 
 	#Load drivers for 1wire sensor
 	try:
@@ -47,26 +48,8 @@ def main():
 	if no_of_devices < 1:
 		sys.exit()
 
-	#define functions
-	def read_temp(device):
-		DS18b20 = open(device)
-		text = DS18b20.read()
-		DS18b20.close()
-
-		crc = text.split("\n")[0][-3:]		
-
-		if crc=="YES":
-			rawData = text.split("\n")[1][-5:]
-			temperature = float(rawData) / 1000
-			return temperature
-		else:
-			return None
-	#Set path to temp sensor
-	tempSensor = "/sys/bus/w1/devices/28-0000052c98b1/w1_slave"
-
 	#Get values here
-	temperature = "%.2f" % (read_temp(tempSensor))
-	temperature = round(read_temp(tempSensor))
+	temperature = read_temp(tempSensor0)
 
 	#Logic to control LEDs
 	if temperature < 20:
@@ -77,11 +60,13 @@ def main():
 		GPIO.output(25,1)
 			
 	if dbON == "true":
-		#DB stuff
+		#set up mysql connection string
+		db = MySQLdb.connect(host=dbHost,user=dbUser,passwd=dbPass,db=dbName)
 		cursor = db.cursor()
+
 		try:
 			cursor.execute("""INSERT INTO tempData
-	        	        VALUES(CURRENT_DATE(), NOW(), 'lounge', %s)""",(temperature))
+	        	        VALUES(CURRENT_DATE(), NOW(), %s, %s)""",(tempSensor0_loc,temperature))
 			db.commit()
 		except Exception,e:
 		        #print("There was an error when attempting the insert: " + str(e))
@@ -91,6 +76,20 @@ def main():
 
 	#Cleanup GPIO
 	#GPIO.cleanup()
+
+def read_temp(device):
+	DS18b20 = open(device)
+	text = DS18b20.read()
+	DS18b20.close()
+
+	crc = text.split("\n")[0][-3:]
+
+	if crc=="YES":
+		rawData = text.split("\n")[1][-5:]
+		temperature = float(rawData) / 1000
+		return temperature
+	else:
+		return None
 
 if __name__ == "__main__":
     main()
