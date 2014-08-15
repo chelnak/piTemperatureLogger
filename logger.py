@@ -24,7 +24,6 @@ def main():
 	dbUser = parser.get('mysql', 'dbUser')
 	dbPass = parser.get('mysql', 'dbPass')
 	dbName = parser.get('mysql', 'dbName')
-	dbTable = parser.get('mysql', 'dbTable')	
 	
 	#Configure logger
 	logger = logging.getLogger("piTemperatureLogger")
